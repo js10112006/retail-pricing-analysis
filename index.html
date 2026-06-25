@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PriceIQ — Dynamic Pricing Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F6F2;
+    --surface: #FFFFFF;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
+    --text-primary: #1A1918;
+    --text-secondary: #6B6963;
+    --text-hint: #9D9C97;
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --purple-mid: #7F77DD;
+    --teal: #1D9E75;
+    --teal-light: #E1F5EE;
+    --coral: #D85A30;
+    --coral-light: #FAECE7;
+    --amber: #BA7517;
+    --amber-light: #FAEEDA;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* NAV */
+  nav {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--purple);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--purple-mid);
+  }
+  .nav-badge {
+    font-size: 11px;
+    background: var(--purple-light);
+    color: var(--purple);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  /* HERO */
+  .hero {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 3rem 2rem 2.5rem;
+    text-align: center;
+  }
+  .hero-eyebrow {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin-bottom: 1rem;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero h1 span { color: var(--purple-mid); }
+  .hero-sub {
+    font-size: 16px;
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto 2rem;
+  }
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .hero-stat-item {
+    text-align: center;
+  }
+  .hero-stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+  }
+  .hero-stat-label {
+    font-size: 12px;
+    color: var(--text-hint);
+    margin-top: 2px;
+  }
+
+  /* MAIN LAYOUT */
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .main { grid-template-columns: 1fr; }
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-hint);
+    margin-bottom: 1.25rem;
+  }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .form-full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  input, select {
+    height: 38px;
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 0 12px;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6963' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+  }
+  input:focus, select:focus { border-color: var(--purple-mid); box-shadow: 0 0 0 3px rgba(127,119,221,0.12); }
+  .input-prefix { position: relative; }
+  .input-prefix span {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--text-hint);
+    pointer-events: none;
+  }
+  .input-prefix input { padding-left: 22px; }
+
+  /* ELASTICITY SLIDER */
+  .slider-row { display: flex; flex-direction: column; gap: 6px; }
+  .slider-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-hint); }
+  input[type=range] {
+    height: 4px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: linear-gradient(to right, var(--purple-mid) var(--pct, 50%), var(--border-strong) var(--pct, 50%));
+    cursor: pointer;
+    box-shadow: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--purple);
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--purple-mid);
+    cursor: pointer;
+  }
+  .elasticity-val {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--purple);
+    text-align: right;
+  }
+
+  /* BUTTON */
+  .btn-primary {
+    width: 100%;
+    height: 44px;
+    background: var(--purple);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: background 0.15s, transform 0.1s;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  .btn-primary:hover { background: #4740a3; }
+  .btn-primary:active { transform: scale(0.99); }
+
+  /* RESULTS PANEL */
+  .result-hidden { display: none; }
+
+  .recommended-price {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: var(--purple-light);
+    border-radius: var(--radius-md);
+    margin-bottom: 1.25rem;
+  }
+  .rp-label { font-size: 12px; font-weight: 600; color: var(--purple); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+  .rp-price { font-size: 42px; font-weight: 800; color: var(--purple); letter-spacing: -0.04em; line-height: 1; }
+  .rp-change {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .rp-change.up { background: var(--teal-light); color: var(--teal); }
+  .rp-change.down { background: var(--coral-light); color: var(--coral); }
+  .rp-change.flat { background: var(--amber-light); color: var(--amber); }
+
+  .metrics-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+  .metric-card {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+  .metric-label { font-size: 11px; color: var(--text-hint); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .metric-value { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+  .metric-sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .metric-card.green .metric-value { color: var(--teal); }
+  .metric-card.red .metric-value { color: var(--coral); }
+
+  /* RECOMMENDATION BOX */
+  .rec-box {
+    border-radius: var(--radius-md);
+    padding: 1rem 1.1rem;
+    margin-bottom: 10px;
+  }
+  .rec-box.raise { background: var(--teal-light); border-left: 3px solid var(--teal); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .rec-box.lower { background: var(--coral-light); border-left: 3px solid var(--coral); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .rec-box.hold  { background: var(--amber-light); border-left: 3px solid var(--amber); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .rec-box-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .rec-box.raise .rec-box-title { color: #085041; }
+  .rec-box.lower .rec-box-title { color: #712B13; }
+  .rec-box.hold  .rec-box-title { color: #633806; }
+  .rec-box p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .rec-box.raise p { color: #0F6E56; }
+  .rec-box.lower p { color: #993C1D; }
+  .rec-box.hold  p { color: #854F0B; }
+
+  /* CHART */
+  .chart-wrap { position: relative; height: 220px; margin-top: 1.25rem; }
+
+  /* INSIGHT PILLS */
+  .insight-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.25rem; }
+  .pill {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    border: 0.5px solid transparent;
+  }
+  .pill-purple { background: var(--purple-light); color: var(--purple); border-color: #AFA9EC; }
+  .pill-teal   { background: var(--teal-light); color: #085041; border-color: #9FE1CB; }
+  .pill-amber  { background: var(--amber-light); color: #633806; border-color: #FAC775; }
+
+  /* HISTORY TABLE */
+  .history-section { grid-column: 1 / -1; }
+  .history-table { width: 100%; font-size: 13px; border-collapse: collapse; }
+  .history-table th { text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-hint); border-bottom: 0.5px solid var(--border); }
+  .history-table td { padding: 10px 10px; border-bottom: 0.5px solid var(--border); color: var(--text-secondary); vertical-align: middle; }
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: var(--bg); }
+  .badge { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; display: inline-block; }
+  .badge-up   { background: var(--teal-light); color: #085041; }
+  .badge-down { background: var(--coral-light); color: #712B13; }
+  .badge-hold { background: var(--amber-light); color: #633806; }
+  .empty-state { text-align: center; padding: 2rem; color: var(--text-hint); font-size: 14px; }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 12px;
+    color: var(--text-hint);
+    border-top: 0.5px solid var(--border);
+    margin-top: 1rem;
+  }
+  footer span { color: var(--purple); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    PriceIQ
+  </div>
+  <div class="nav-badge">Portfolio Project</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">ML-Powered Pricing Engine</div>
+  <h1>Find the <span>optimal price</span> for any product</h1>
+  <p class="hero-sub">Built on price elasticity analysis of 800K+ retail transactions. Enter your product details to get a data-driven pricing recommendation.</p>
+  <div class="hero-stats">
+    <div class="hero-stat-item">
+      <div class="hero-stat-num">805K+</div>
+      <div class="hero-stat-label">transactions analysed</div>
+    </div>
+    <div class="hero-stat-item">
+      <div class="hero-stat-num">5,283</div>
+      <div class="hero-stat-label">products in model</div>
+    </div>
+    <div class="hero-stat-item">
+      <div class="hero-stat-num">£17.7M</div>
+      <div class="hero-stat-label">revenue modelled</div>
+    </div>
+    <div class="hero-stat-item">
+      <div class="hero-stat-num">scikit-learn</div>
+      <div class="hero-stat-label">elasticity model</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- INPUT CARD -->
+  <div class="card">
+    <div class="card-title">Product inputs</div>
+
+    <div class="form-grid">
+      <div class="field form-full">
+        <label for="product-name">Product name</label>
+        <input type="text" id="product-name" placeholder="e.g. Regency Cakestand 3 Tier" value="Regency Cakestand 3 Tier">
+      </div>
+
+      <div class="field">
+        <label for="current-price">Current price</label>
+        <div class="input-prefix">
+          <span>£</span>
+          <input type="number" id="current-price" step="0.01" min="0.01" placeholder="0.00" value="12.75">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="competitor-price">Competitor price</label>
+        <div class="input-prefix">
+          <span>£</span>
+          <input type="number" id="competitor-price" step="0.01" min="0.01" placeholder="0.00" value="14.99">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="monthly-units">Units sold / month</label>
+        <input type="number" id="monthly-units" min="1" placeholder="0" value="210">
+      </div>
+
+      <div class="field">
+        <label for="season">Season</label>
+        <select id="season">
+          <option value="q1">Q1 — Jan to Mar</option>
+          <option value="q2">Q2 — Apr to Jun</option>
+          <option value="q3">Q3 — Jul to Sep</option>
+          <option value="q4" selected>Q4 — Oct to Dec</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="category">Product category</label>
+        <select id="category">
+          <option value="gifts">Gifts and novelties</option>
+          <option value="home" selected>Home and kitchen</option>
+          <option value="decor">Decorative items</option>
+          <option value="stationery">Stationery</option>
+          <option value="seasonal">Seasonal items</option>
+        </select>
+      </div>
+
+      <div class="field form-full">
+        <label>Price sensitivity (elasticity): <span id="elast-display" style="color: var(--purple); font-weight: 600;">-0.8 — Inelastic</span></label>
+        <div class="slider-row">
+          <div class="slider-labels">
+            <span>Very elastic (-3)</span>
+            <span>Inelastic (0)</span>
+          </div>
+          <input type="range" id="elasticity" min="-30" max="0" value="-8" step="1" oninput="updateSlider(this)">
+        </div>
+        <div style="font-size: 11px; color: var(--text-hint); margin-top: 4px;">
+          Estimate from your product's sales history, or use our default (-0.8 = typical mid-range product)
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="runModel()">Calculate optimal price</button>
+  </div>
+
+  <!-- RESULTS CARD -->
+  <div class="card" id="results-card">
+    <div class="card-title">Recommendation</div>
+
+    <div id="placeholder" style="text-align:center; padding: 3rem 1rem; color: var(--text-hint);">
+      <div style="font-size: 36px; margin-bottom: 12px; opacity: 0.3;">◎</div>
+      <div style="font-size: 14px;">Fill in the product details and click<br>Calculate to see your recommendation</div>
+    </div>
+
+    <div id="results" class="result-hidden">
+      <div class="recommended-price">
+        <div class="rp-label">Recommended price</div>
+        <div class="rp-price" id="rec-price">£0.00</div>
+        <div class="rp-change" id="rec-change-badge">+0%</div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">Current revenue / mo</div>
+          <div class="metric-value" id="curr-rev">£0</div>
+          <div class="metric-sub" id="curr-units-label">at £0 × 0 units</div>
+        </div>
+        <div class="metric-card green" id="proj-card">
+          <div class="metric-label">Projected revenue / mo</div>
+          <div class="metric-value" id="proj-rev">£0</div>
+          <div class="metric-sub" id="proj-units-label">at £0 × 0 units</div>
+        </div>
+      </div>
+
+      <div id="rec-box-main"></div>
+      <div id="rec-box-secondary" style="margin-top: 8px;"></div>
+
+      <div class="chart-wrap">
+        <canvas id="rev-chart"></canvas>
+      </div>
+
+      <div class="insight-row" id="insight-pills"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TABLE -->
+  <div class="card history-section">
+    <div class="card-title">Analysis history</div>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Current</th>
+          <th>Recommended</th>
+          <th>Rev. impact</th>
+          <th>Season</th>
+          <th>Signal</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="6" class="empty-state">No analyses yet. Run your first recommendation above.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  Built by [Your Name] &nbsp;·&nbsp; <span>Pricing Strategy Portfolio Project</span> &nbsp;·&nbsp; UCI Online Retail II Dataset &nbsp;·&nbsp; Python · scikit-learn · FastAPI (backend) · Chart.js
+</footer>
+
+<script>
+let chart = null;
+let history = [];
+
+function updateSlider(el) {
+  const raw = parseFloat(el.value) / 10;
+  const pct = ((parseFloat(el.value) - parseFloat(el.min)) / (parseFloat(el.max) - parseFloat(el.min))) * 100;
+  el.style.setProperty('--pct', pct + '%');
+  const label = raw < -1.5
+    ? `${raw.toFixed(1)} — Highly elastic`
+    : raw < -0.5
+    ? `${raw.toFixed(1)} — Moderately elastic`
+    : `${raw.toFixed(1)} — Inelastic`;
+  document.getElementById('elast-display').textContent = label;
+}
+
+updateSlider(document.getElementById('elasticity'));
+
+function seasonMultiplier(s) {
+  return { q1: 0.88, q2: 0.95, q3: 1.02, q4: 1.18 }[s] || 1;
+}
+
+function categoryMultiplier(c) {
+  return { gifts: 1.12, home: 1.0, decor: 1.05, stationery: 0.95, seasonal: 1.22 }[c] || 1;
+}
+
+function fmt(n) {
+  return '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function runModel() {
+  const name         = document.getElementById('product-name').value.trim() || 'Unknown product';
+  const currentPrice = parseFloat(document.getElementById('current-price').value);
+  const compPrice    = parseFloat(document.getElementById('competitor-price').value);
+  const baseUnits    = parseFloat(document.getElementById('monthly-units').value);
+  const season       = document.getElementById('season').value;
+  const category     = document.getElementById('category').value;
+  const elasticity   = parseFloat(document.getElementById('elasticity').value) / 10;
+
+  if ([currentPrice, compPrice, baseUnits].some(v => isNaN(v) || v <= 0)) {
+    alert('Please fill in all price and units fields with positive numbers.');
+    return;
+  }
+
+  const sMult = seasonMultiplier(season);
+  const cMult = categoryMultiplier(category);
+
+  // Simulate revenue curve across price range
+  const minP = Math.max(0.5, currentPrice * 0.5);
+  const maxP = currentPrice * 2.0;
+  const steps = 80;
+  const prices = [], revenues = [], units = [];
+
+  for (let i = 0; i <= steps; i++) {
+    const p = minP + (maxP - minP) * (i / steps);
+    const pricePctChange = (p - currentPrice) / currentPrice;
+    const demandMultiplier = 1 + (elasticity * pricePctChange * sMult * cMult);
+    const u = Math.max(0, baseUnits * demandMultiplier);
+    prices.push(p);
+    units.push(Math.round(u));
+    revenues.push(p * u);
+  }
+
+  const optIdx     = revenues.indexOf(Math.max(...revenues));
+  const optPrice   = prices[optIdx];
+  const optUnits   = units[optIdx];
+  const optRev     = revenues[optIdx];
+  const currRev    = currentPrice * baseUnits;
+
+  const changePct  = ((optPrice - currentPrice) / currentPrice) * 100;
+  const revDelta   = optRev - currRev;
+  const revDeltaPct = (revDelta / currRev) * 100;
+
+  // Competitor gap signal
+  const compGap    = ((currentPrice - compPrice) / compPrice) * 100;
+
+  // Update UI
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('results').classList.remove('result-hidden');
+
+  document.getElementById('rec-price').textContent = fmt(optPrice);
+
+  const badge = document.getElementById('rec-change-badge');
+  const sign = changePct >= 0 ? '+' : '';
+  badge.textContent = `${sign}${changePct.toFixed(1)}% vs current`;
+  badge.className = 'rp-change ' + (changePct > 1 ? 'up' : changePct < -1 ? 'down' : 'flat');
+
+  document.getElementById('curr-rev').textContent = fmt(currRev);
+  document.getElementById('curr-units-label').textContent = `at ${fmt(currentPrice)} × ${Math.round(baseUnits)} units`;
+
+  const projCard = document.getElementById('proj-card');
+  projCard.className = 'metric-card ' + (revDelta >= 0 ? 'green' : 'red');
+  document.getElementById('proj-rev').textContent = fmt(optRev);
+  document.getElementById('proj-units-label').textContent = `at ${fmt(optPrice)} × ${Math.round(optUnits)} units`;
+
+  // Main recommendation
+  let action, detail, boxClass;
+  if (changePct > 3) {
+    action = `Raise price by ${changePct.toFixed(1)}%`;
+    detail = `At £${optPrice.toFixed(2)}, demand stays stable enough that total revenue increases by ${sign}${revDeltaPct.toFixed(1)}%. This product is relatively inelastic — customers absorb the increase.`;
+    boxClass = 'raise';
+  } else if (changePct < -3) {
+    action = `Lower price by ${Math.abs(changePct).toFixed(1)}%`;
+    detail = `At £${optPrice.toFixed(2)}, volume increase more than offsets the lower unit price, netting ${sign}${revDeltaPct.toFixed(1)}% more revenue. This product is price-sensitive.`;
+    boxClass = 'lower';
+  } else {
+    action = 'Hold current price';
+    detail = `Current price is close to optimal. Revenue difference from repricing is under 3%. Monitor competitor prices and revisit next quarter.`;
+    boxClass = 'hold';
+  }
+
+  document.getElementById('rec-box-main').innerHTML = `
+    <div class="rec-box ${boxClass}">
+      <div class="rec-box-title">${action}</div>
+      <p>${detail}</p>
+    </div>`;
+
+  // Competitor signal
+  let compMsg = '', compClass = 'hold';
+  if (compGap < -8) {
+    compMsg = `You are £${Math.abs(currentPrice - compPrice).toFixed(2)} cheaper than competitors — room to raise price without losing customers.`;
+    compClass = 'raise';
+  } else if (compGap > 8) {
+    compMsg = `You are £${Math.abs(currentPrice - compPrice).toFixed(2)} more expensive than competitors — risk of losing price-sensitive buyers.`;
+    compClass = 'lower';
+  } else {
+    compMsg = `Your price is within 8% of competitor average — well-positioned. No immediate repricing pressure from competitors.`;
+    compClass = 'hold';
+  }
+
+  document.getElementById('rec-box-secondary').innerHTML = `
+    <div class="rec-box ${compClass}">
+      <div class="rec-box-title">Competitor signal</div>
+      <p>${compMsg}</p>
+    </div>`;
+
+  // Chart
+  if (chart) chart.destroy();
+  const ctx = document.getElementById('rev-chart').getContext('2d');
+  const optColor = '#534AB7';
+  const currColor = '#D85A30';
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: prices.map(p => `£${p.toFixed(2)}`),
+      datasets: [{
+        label: 'Simulated revenue',
+        data: revenues,
+        borderColor: optColor,
+        backgroundColor: 'rgba(83,74,183,0.06)',
+        borderWidth: 2,
+        fill: true,
+        pointRadius: 0,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `Revenue: £${ctx.raw.toLocaleString('en-GB', {maximumFractionDigits: 0})}`
+          }
+        },
+        annotation: { annotations: {} }
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 6, font: { size: 11 }, color: '#9D9C97' },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          border: { color: 'rgba(0,0,0,0.08)' }
+        },
+        y: {
+          ticks: {
+            font: { size: 11 },
+            color: '#9D9C97',
+            callback: v => `£${(v/1000).toFixed(1)}k`
+          },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          border: { color: 'rgba(0,0,0,0.08)' }
+        }
+      }
+    },
+    plugins: [{
+      id: 'vlines',
+      afterDraw(chart) {
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        const drawLine = (idx, color, label) => {
+          const xPx = x.getPixelForValue(idx);
+          ctx.save();
+          ctx.beginPath();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.moveTo(xPx, top);
+          ctx.lineTo(xPx, bottom);
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.font = '500 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, xPx, top - 4);
+          ctx.restore();
+        };
+        const currIdx = prices.reduce((a, p, i) => Math.abs(p - currentPrice) < Math.abs(prices[a] - currentPrice) ? i : a, 0);
+        drawLine(currIdx, currColor, `Current ${fmt(currentPrice)}`);
+        drawLine(optIdx, optColor, `Optimal ${fmt(optPrice)}`);
+      }
+    }]
+  });
+
+  // Pills
+  const seasonLabel = { q1: 'Q1 pricing', q2: 'Q2 pricing', q3: 'Q3 pricing', q4: 'Q4 peak season' }[season];
+  const elastLabel = elasticity < -1.5 ? 'High price sensitivity' : elasticity < -0.5 ? 'Moderate sensitivity' : 'Low price sensitivity';
+  document.getElementById('insight-pills').innerHTML = `
+    <span class="pill pill-purple">${elastLabel}</span>
+    <span class="pill pill-teal">${seasonLabel}</span>
+    <span class="pill pill-amber">${revDelta >= 0 ? '+' : ''}${revDeltaPct.toFixed(1)}% revenue ${revDelta >= 0 ? 'uplift' : 'change'}</span>
+  `;
+
+  // History
+  const seasonNames = { q1: 'Q1', q2: 'Q2', q3: 'Q3', q4: 'Q4' };
+  history.unshift({ name, currentPrice, optPrice, changePct, currRev, optRev, revDelta, season: seasonNames[season] });
+  if (history.length > 8) history.pop();
+
+  const tbody = document.getElementById('history-body');
+  tbody.innerHTML = history.map(h => {
+    const sign = h.changePct >= 0 ? '+' : '';
+    const cls = h.changePct > 1 ? 'badge-up' : h.changePct < -1 ? 'badge-down' : 'badge-hold';
+    const sig = h.changePct > 1 ? 'Raise' : h.changePct < -1 ? 'Lower' : 'Hold';
+    const deltaSign = h.revDelta >= 0 ? '+' : '';
+    return `<tr>
+      <td style="font-weight:500; color: var(--text-primary); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${h.name}</td>
+      <td>${fmt(h.currentPrice)}</td>
+      <td style="font-weight:500; color: var(--purple);">${fmt(h.optPrice)}</td>
+      <td style="color: ${h.revDelta >= 0 ? 'var(--teal)' : 'var(--coral)'}; font-weight: 500;">${deltaSign}${fmt(h.revDelta)}/mo</td>
+      <td style="color: var(--text-secondary);">${h.season}</td>
+      <td><span class="badge ${cls}">${sig} ${sign}${Math.abs(h.changePct).toFixed(1)}%</span></td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

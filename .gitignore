@@ -1,0 +1,18 @@
+
+.ipynb_checkpoints/
+
+data/processed/
+
+
+venv/
+__pycache__/
+*.pyc
+.env
+
+# large data files — don't push to GitHub
+online_retail/
+clean_online_retail.csv
+
+# OS
+.DS_Store
+Thumbs.db
